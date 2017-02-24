@@ -6,6 +6,8 @@
 
 ## 👌 &nbsp; Features
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/pedronauck/micro-router.svg)](https://greenkeeper.io/)
+
 - **Tiny**. Just 23 lines of code.
 - **Functional**. Write your method using functions.
 - **Async**. Design to use with `async/await`
