@@ -1,30 +1,29 @@
-:station:  _**Micro Router -**_ A tiny and functional router for ZEIT's [micro](https://github.com/zeit/micro)
+:station:  _**Toy Router -**_ A tiny, functional, modular router for ZEIT's [micro](https://github.com/zeit/micro)
 
-[![GitHub release](https://img.shields.io/github/release/pedronauck/micro-router.svg)]()
-[![Build Status](https://travis-ci.org/pedronauck/micro-router.svg?branch=master)](https://travis-ci.org/pedronauck/micro-router)
-[![Coveralls](https://img.shields.io/coveralls/pedronauck/micro-router.svg)]()
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/ebdcc3e942b14363a96438b41c770b32)](https://www.codacy.com/app/pedronauck/micro-router?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=pedronauck/micro-router&amp;utm_campaign=Badge_Grade)
+[![GitHub release](https://img.shields.io/github/release/track0x1/toy-router.svg)]()
+[![Coveralls](https://img.shields.io/coveralls/track0x1/toy-router.svg)]()
 [![XO code style](https://img.shields.io/badge/code_style-XO-5ed9c7.svg)](https://github.com/sindresorhus/xo)
 
 ## 👌 &nbsp; Features
 
-- **Tiny**. Just 23 lines of code.
+- **Tiny**. Just 35 lines of code.
 - **Functional**. Write your http methods using functions.
 - **Async**. Design to use with `async/await`
+- **Modular**. Create sets of routes and join them together.
 
 ## 💻 &nbsp; Usage
 
 Install as project dependency:
 
 ```bash
-$ yarn add microrouter
+$ yarn add toy-router
 ```
 
-Then you can define your routes inside your microservice:
+Define your routes inside your microservice:
 
 ```js
 const { send } = require('micro')
-const { router, get } = require('microrouter')
+const router = require('toy-router')()
 
 const hello = (req, res) =>
   send(res, 200, `Hello ${req.params.who}`)
@@ -32,10 +31,10 @@ const hello = (req, res) =>
 const notfound = (req, res) =>
   send(res, 404, 'Not found route')
 
-module.exports = router(
-  get('/hello/:who', hello),
-  get('/*', notfound)
-)
+router.get('/hello/:who', hello)
+router.get('/*', notfound)
+
+module.exports = router.use()
 ```
 
 ### `async/await`
@@ -44,27 +43,71 @@ You can use your handler as an async function:
 
 ```js
 const { send } = require('micro')
-const { router, get } = require('microrouter')
+const router = require('toy-router')()
 
 const hello = async (req, res) =>
   send(res, 200, await Promise.resolve(`Hello ${req.params.who}`))
 
-module.exports = router(
-  get('/hello/:who', hello)
-)
+router.get('/hello/:who', hello)
+
+module.exports = router.use()
+```
+
+### creating a router
+
+Similar to the pattern used by [Express Router](http://expressjs.com/en/api.html#express.router), invoke `toy-router` to create a new isolated instance.
+
+```js
+const router = require('toy-router')()
+```
+
+Then on an instance of `toy-router`, you can add routes to it using the [route methods](#route-methods), or combine it with other instances of `toy-router` with `use()`. When you've finished adding all routes, provide your final router to micro with `use()`.
+
+#### `router.use([router, ...])`
+
+Each instance of `toy-router` can _use_ other `toy-routers`, so you can modularize and combine multiple sets of routes.
+
+Once you've finalized your top-level router, provide it to micro by invoking `use()`.
+
+```js
+const router = require('toy-router')()
+
+router.get('/', () => 'G`day')
+
+module.exports = router.use()
+```
+
+Modular approach:
+```js
+// index.js
+const router = require('toy-router')()
+const fooRouter = require('./fooRouter')
+const barRouter = require('./barRouter')
+
+module.exports = router.use(fooRouter, barRouter)
+
+// fooRouter.js
+const router = require('toy-router')()
+router.get('/foo', () => 'I am foo')
+module.exports = router;
+
+// barRouter.js
+const router = require('toy-router')()
+router.get('/bar', () => 'I am bar')
+module.exports = router;
 ```
 
 ### route methods
 
-Each route is a single basic http method that you import from `microrouter` and has the same arguments:
+Each route is a single basic http method that is provided on an instance of `toy-router` and has the same arguments:
 
-- `get(path = String, handler = Function)`
-- `post(path = String, handler = Function)`
-- `put(path = String, handler = Function)`
-- `patch(path = String, handler = Function)`
-- `del(path = String, handler = Function)`
-- `head(path = String, handler = Function)`
-- `options(path = String, handler = Function)`
+- `router.get(path = String, handler = Function)`
+- `router.post(path = String, handler = Function)`
+- `router.put(path = String, handler = Function)`
+- `router.patch(path = String, handler = Function)`
+- `router.del(path = String, handler = Function)`
+- `router.head(path = String, handler = Function)`
+- `router.options(path = String, handler = Function)`
 
 #### path
 
@@ -82,13 +125,12 @@ The format of this function is `(res, res) => {}`
 As you can see below, the `req` parameter has a property called `params` that represents the parameters defined in your `path`:
 
 ```js
-const { router, get } = require('microrouter')
+const router = require('toy-router')()
 const request = require('some-request-lib')
 
 // service.js
-module.exports = router(
-  get('/hello/:who', (req, res) => req.params)
-)
+router.get('/hello/:who', (req, res) => req.params)
+module.exports = router.use()
 
 // test.js
 const response = await request('/hello/World')
@@ -101,13 +143,12 @@ console.log(response)  // { who: 'World' }
 The `req` parameter also has a `query` property that represents the `queries` defined in your requision url:
 
 ```js
-const { router, get } = require('microrouter')
+const router = require('toy-router')()
 const request = require('some-request-lib')
 
 // service.js
-module.exports = router(
-  get('/user', (req, res) => req.query)
-)
+router.get('/user', (req, res) => req.query)
+module.exports = router.use()
 
 // test.js
 const response = await request('/user?id=1')
@@ -117,10 +158,10 @@ console.log(response)  // { id: 1 }
 
 ### Parsing Body
 
-By default, router *doens't parse anything* from your requisition, it's just match your paths and execute a specific handler. So, if you want to parse your body requisition you can do something like that:
+By default, router *doesn't parse anything* from your requisition; it only matches your paths and execute a specific handler. So, if you want to parse your body requisition you can do something like that:
 
 ```js
-const { router, post } = require('microrouter')
+const router = require('toy-router')
 const { json, send } = require('micro')
 const request = require('some-request-lib')
 
@@ -130,9 +171,9 @@ const user = async (req, res) => {
   send(res, 200, body)
 }
 
-module.exports = router(
-  post('/user', user)
-)
+router.post('/user', user)
+
+module.exports = router.use()
 
 // test.js
 const body = { id: 1 }
